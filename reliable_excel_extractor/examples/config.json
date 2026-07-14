@@ -1,0 +1,22 @@
+{
+  "accept_confidence": 0.72,
+  "review_confidence": 0.50,
+  "propagate_blank_hierarchy_labels": false,
+  "template": {
+    "required_sheets": ["KPI Summary"],
+    "known_kpi_aliases": {
+      "rev": "Revenue",
+      "operating cost": "Cost"
+    },
+    "sheet_rules": {
+      "KPI Summary": {
+        "expected_anchor_labels": ["KPI Performance"],
+        "known_ranges": ["B2:F8"],
+        "maximum_header_depth": 3,
+        "known_total_labels": ["Total"],
+        "known_subtotal_labels": ["Subtotal"],
+        "known_grand_total_labels": ["Grand Total"]
+      }
+    }
+  }
+}

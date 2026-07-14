@@ -1,0 +1,22 @@
+[build-system]
+requires = ["setuptools>=69", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "reliable-excel-extractor"
+version = "0.1.0"
+description = "Auditable extraction of structured data from complex Excel workbooks"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "openpyxl>=3.1.2",
+    "pandas>=2.1.0",
+    "numpy>=1.26.0",
+]
+
+[project.scripts]
+extract-excel = "excel_extractor.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["excel_extractor*"]
