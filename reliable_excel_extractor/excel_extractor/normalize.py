@@ -35,7 +35,7 @@ def _measure_value(record: dict[str, Any] | None) -> Any:
 
     if not record:
         return None
-    if record.get("formula") is not None:
+    if record.get("data_type") == "f":
         return record.get("cached_value")
     return record.get("raw_value")
 
@@ -145,7 +145,7 @@ def _observation_record(
         "currency": currency,
         "value": value,
         "value_type": source_record.get("semantic_type"),
-        "is_formula": source_record.get("formula") is not None,
+        "is_formula": source_record.get("data_type") == "f",
         "is_total": row_type in {"subtotal", "total", "grand_total"},
         "row_type": row_type,
         "dimensions_json": json_dumps(dimensions),

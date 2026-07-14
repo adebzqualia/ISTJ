@@ -117,3 +117,11 @@ labels, and KPI aliases before lowering confidence thresholds.
 ```bash
 pytest -q
 ```
+
+## Formula compatibility
+
+The extractor supports standard formulas and OpenPyXL 3.1 array formulas.
+Array formula anchors are normalized from ``ArrayFormula`` objects into their
+formula text, with ``formula_type="array"`` and the array range preserved in
+``formula_range``. Formula text is never used as an analytical value when no
+cached result is available.

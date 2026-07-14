@@ -152,7 +152,7 @@ def validate_simple_sum_formulas(
                     continue
                 value = (
                     source.get("cached_value")
-                    if source.get("formula") is not None
+                    if source.get("data_type") == "f"
                     else source.get("raw_value")
                 )
                 if is_missing(value):
@@ -216,7 +216,7 @@ def validate_coverage(
     for record in raw_cells:
         value = (
             record.get("formula")
-            if record.get("formula") is not None
+            if record.get("data_type") == "f"
             else record.get("raw_value")
         )
         if is_missing(value) and is_missing(record.get("resolved_merged_value")):

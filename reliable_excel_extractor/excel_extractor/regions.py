@@ -49,7 +49,7 @@ def _occupied_coordinates(
     occupied: set[tuple[int, int]] = set()
     for record in raw_cells:
         value = record["raw_value"]
-        if record["formula"] is not None:
+        if record.get("data_type") == "f":
             occupied.add((record["row_index"], record["column_index"]))
         elif not is_missing(value):
             occupied.add((record["row_index"], record["column_index"]))

@@ -60,10 +60,10 @@ def effective_value(record: dict[str, Any] | None) -> Any:
         return None
     if not is_missing(record.get("resolved_merged_value")):
         return record["resolved_merged_value"]
-    if record.get("formula") is not None:
+    if record.get("data_type") == "f":
         if not is_missing(record.get("cached_value")):
             return record["cached_value"]
-        return record["formula"]
+        return record.get("formula")
     return record.get("raw_value")
 
 

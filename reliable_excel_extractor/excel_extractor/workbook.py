@@ -12,6 +12,7 @@ from openpyxl import load_workbook
 from openpyxl.cell.cell import MergedCell
 from openpyxl.utils import get_column_letter
 from openpyxl.workbook.workbook import Workbook
+from openpyxl.worksheet.formula import ArrayFormula, DataTableFormula
 from openpyxl.worksheet.worksheet import Worksheet
 
 from .config import ExtractionConfig
@@ -103,6 +104,12 @@ def build_merged_cell_map(worksheet: Worksheet) -> dict[str, dict[str, Any]]:
             row=merged_range.min_row,
             column=merged_range.min_col,
         )
+        anchor_value = anchor.value
+        if anchor.data_type == "f":
+            anchor_value, _, _ = formula_metadata(
+                anchor.value,
+                anchor.data_type,
+            )
         for row in range(merged_range.min_row, merged_range.max_row + 1):
             for column in range(
                 merged_range.min_col,
@@ -112,7 +119,7 @@ def build_merged_cell_map(worksheet: Worksheet) -> dict[str, dict[str, Any]]:
                 merged_map[address] = {
                     "merged_range": str(merged_range),
                     "merged_anchor": anchor.coordinate,
-                    "resolved_merged_value": anchor.value,
+                    "resolved_merged_value": anchor_value,
                 }
     return merged_map
 
@@ -241,18 +248,53 @@ def semantic_type(
     return "OTHER"
 
 
+def formula_metadata(
+    value: Any,
+    data_type: str,
+) -> tuple[str | None, str | None, str | None]:
+    """Return serializable formula text, formula kind, and formula range.
+
+    OpenPyXL 3.1 represents array formulas with :class:`ArrayFormula` objects
+    instead of plain strings. Data-table formulas use :class:`DataTableFormula`.
+    This helper normalizes those representations before downstream parsing.
+    """
+
+    if data_type != "f":
+        return None, None, None
+
+    if isinstance(value, str):
+        return value, "standard", None
+
+    if isinstance(value, ArrayFormula):
+        text = value.text if isinstance(value.text, str) else None
+        if text and not text.startswith("="):
+            text = f"={text}"
+        return text, "array", value.ref
+
+    if isinstance(value, DataTableFormula):
+        return None, "data_table", value.ref
+
+    text = getattr(value, "text", None)
+    if isinstance(text, str):
+        if text and not text.startswith("="):
+            text = f"={text}"
+        return text, type(value).__name__, getattr(value, "ref", None)
+
+    return None, type(value).__name__, getattr(value, "ref", None)
+
+
 def extract_formula_references(
     formula: str | None,
     current_sheet: str,
 ) -> list[dict[str, str]]:
-    """Extract basic A1 references from a formula string.
+    """Extract basic A1 references from normalized formula text.
 
     The parser intentionally records only direct A1 references. Structured
-    references, dynamic arrays, and indirect references remain in the formula
-    text and should be treated as unresolved dependencies.
+    references, dynamic arrays, data tables, and indirect references remain
+    unresolved dependencies.
     """
 
-    if not formula or not formula.startswith("="):
+    if not isinstance(formula, str) or not formula.startswith("="):
         return []
 
     references: list[dict[str, str]] = []
@@ -305,17 +347,21 @@ def extract_raw_cells(
         formula_cell = formula_sheet[address]
         value_cell = value_sheet[address]
         merge_info = merged_map.get(address, {})
-        raw_value = (
+        source_value = (
             None if isinstance(formula_cell, MergedCell) else formula_cell.value
         )
         cached_value = (
             None if isinstance(value_cell, MergedCell) else value_cell.value
         )
-        formula = raw_value if formula_cell.data_type == "f" else None
+        formula, formula_type, formula_range = formula_metadata(
+            source_value,
+            formula_cell.data_type,
+        )
+        raw_value = formula if formula_cell.data_type == "f" else source_value
         is_error = formula_cell.data_type == "e" or value_cell.data_type == "e"
         warning_codes: list[str] = []
 
-        if formula and is_missing(cached_value):
+        if formula_cell.data_type == "f" and is_missing(cached_value):
             warning_codes.append("CL001")
             warnings.append(
                 ExtractionWarning(
@@ -366,6 +412,8 @@ def extract_raw_cells(
                 "raw_value": raw_value,
                 "cached_value": cached_value,
                 "formula": formula,
+                "formula_type": formula_type,
+                "formula_range": formula_range,
                 "formula_references_json": json_dumps(
                     extract_formula_references(formula, formula_sheet.title)
                 ),
@@ -479,12 +527,12 @@ def inspect_sheet(
             1
             for record in raw_cells
             if not is_missing(record["raw_value"])
-            or record["formula"] is not None
+            or record["data_type"] == "f"
             or not is_missing(record["resolved_merged_value"])
         ),
         "raw_cell_record_count": len(raw_cells),
         "formula_cell_count": sum(
-            record["formula"] is not None for record in raw_cells
+            record["data_type"] == "f" for record in raw_cells
         ),
         "merged_range_count": len(worksheet.merged_cells.ranges),
         "merged_ranges_json": json_dumps(

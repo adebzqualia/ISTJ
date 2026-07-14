@@ -99,3 +99,29 @@ def test_smoke(tmp_path: Path) -> None:
 
     assert (warnings["warning_code"] == "CL001").sum() == 3
     assert not (warnings["warning_code"] == "VA002").any()
+
+
+def test_array_formula_is_normalized(tmp_path: Path) -> None:
+    """Array formulas should be stored as text without calling string methods on objects."""
+
+    from openpyxl.worksheet.formula import ArrayFormula
+
+    workbook_path = tmp_path / "array_formula.xlsx"
+    workbook = Workbook()
+    sheet = workbook.active
+    sheet.title = "Array Formula"
+    sheet["A1"] = "Value"
+    sheet["A2"] = ArrayFormula(ref="A2:A4", text="=ROW(A2:A4)")
+    workbook.save(workbook_path)
+
+    result = ExcelExtractor().extract(workbook_path)
+    raw_cells = result["raw_cells"]
+    array_record = raw_cells.loc[
+        (raw_cells["sheet_name"] == "Array Formula")
+        & (raw_cells["cell_address"] == "A2")
+    ].iloc[0]
+
+    assert array_record["formula"] == "=ROW(A2:A4)"
+    assert array_record["formula_type"] == "array"
+    assert array_record["formula_range"] == "A2:A4"
+    assert array_record["semantic_type"] == "FORMULA_UNKNOWN"
